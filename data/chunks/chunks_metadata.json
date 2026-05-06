@@ -1,0 +1,16 @@
+{
+  "chunking_parameters": {
+    "chunk_size": 5,
+    "max_chunk_length": 2000,
+    "overlap": 1
+  },
+  "input_file_timestamp": "2026-05-06T09:55:00.625393",
+  "statistics": {
+    "avg_chunk_size": 1704.1753515301903,
+    "input_records": 4803,
+    "max_chunk_length": 1995,
+    "min_chunk_length": 360,
+    "total_chunks": 1209
+  },
+  "total_text_length": 2060348
+}
