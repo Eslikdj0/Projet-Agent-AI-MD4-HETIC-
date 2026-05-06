@@ -1,6 +1,5 @@
 """
 rag.py
-─────────────────────────────────────────────────────────────
 Système de questions-réponses RAG pour la recommandation films.
 
 Points clés :
@@ -15,7 +14,6 @@ Dépend de :
     config.py      → constantes centralisées
     vector_db.py   → wrapper FAISS
     context.txt    → prompt système avec placeholder {{Chuncks}}
-─────────────────────────────────────────────────────────────
 """
 
 import os
@@ -47,9 +45,7 @@ class RAG:
         # en mémoire une seule fois via vector_db.self.modele
         self.vector_db = VectorDB()
 
-        print("[RAG] Prêt — client Groq et VectorDB initialisés\n")
-
-    # ── Lecture fichiers externes ──────────────────────────
+    # Lecture fichiers externes
 
     @staticmethod
     def read_file(file_path: str) -> str:
@@ -69,7 +65,7 @@ class RAG:
         with open(file_path, "r", encoding="utf-8") as file:
             return file.read()
 
-    # ── Formatage des chunks ───────────────────────────────
+    # Formatage des chunks
 
     @staticmethod
     def _formater_film(film: dict) -> str:
@@ -93,7 +89,7 @@ class RAG:
             f"  Synopsis : {film.get('overview', '')}"
         )
 
-    # ── Construction du contexte ──────────────────────────
+    # Construction du contexte
 
     def build_context(self, question: str) -> str:
         """
@@ -122,7 +118,7 @@ class RAG:
 
         return context.replace("{{Chuncks}}", chunks_formates)
 
-    # ── Génération de la réponse ──────────────────────────
+    # Génération de la réponse
 
     def answer_question(self, question: str) -> str:
         """
@@ -154,24 +150,12 @@ class RAG:
         return chat_completion.choices[0].message.content
 
 
-# ─────────────────────────────────────────────
-# POINT D'ENTRÉE — Boucle de chat
-# ─────────────────────────────────────────────
-
 if __name__ == "__main__":
 
-    # RAG instancié UNE SEULE FOIS
-    # → client Groq chargé une fois
-    # → VectorDB + modèle embedding chargés une fois
     rag = RAG()
 
-    print("█" * 60)
-    print("  Assistant Films — posez vos questions")
-    print("  (tapez 'quit' pour quitter)")
-    print("█" * 60 + "\n")
+    print("Assistant Films - posez vos questions (tapez 'quit' pour quitter)\n")
 
-    # Boucle de chat — rag.client et rag.vector_db.modele
-    # sont réutilisés à chaque itération sans rechargement
     while True:
         question = input("Question : ").strip()
 
@@ -182,7 +166,6 @@ if __name__ == "__main__":
         if not question:
             continue
 
-        print("\n" + "─" * 60)
         reponse = rag.answer_question(question)
         print(reponse)
-        print("─" * 60 + "\n")
+        print()

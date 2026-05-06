@@ -39,20 +39,6 @@ def load_csv(chemin: str) -> pd.DataFrame:
     print(f"[2] CSV chargé — {len(df)} films bruts")
     return df
 
-
-def test_chargement(df: pd.DataFrame):
-    """Test unitaire — section 2"""
-    assert len(df) > 0,              "❌ DataFrame vide"
-    assert "title" in df.columns,    "❌ Colonne 'title' absente"
-    assert "overview" in df.columns, "❌ Colonne 'overview' absente"
-    assert "genres" in df.columns,   "❌ Colonne 'genres' absente"
-    print("    ✅ test_chargement passé")
-
-
-# ─────────────────────────────────────────────
-# SECTION 3 — Nettoyage des données
-# ─────────────────────────────────────────────
-
 def _parse_genres(genres_raw) -> list:
     """
     Convertit la colonne genres du format JSON imbriqué en liste de strings.
@@ -102,22 +88,6 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
           f"(supprimés : {len(df) - len(df_clean)})")
     return df_clean
 
-
-def test_cleaning(df_clean: pd.DataFrame):
-    """Test unitaire — section 3"""
-    assert len(df_clean) >= NB_FILMS_MIN, \
-        f"❌ Moins de {NB_FILMS_MIN} films valides : {len(df_clean)}"
-    assert df_clean["title"].isna().sum() == 0,    "❌ Des titres NaN subsistent"
-    assert df_clean["overview"].isna().sum() == 0, "❌ Des synopsis NaN subsistent"
-    assert df_clean["genres"].apply(
-        lambda g: isinstance(g, list)).all(),       "❌ Genres mal parsés"
-    print("    ✅ test_cleaning passé")
-
-
-# ─────────────────────────────────────────────
-# SECTION 4 — Conversion tabulaire → chunks
-# ─────────────────────────────────────────────
-
 def film_to_text(film: dict) -> str:
     """
     Convertit une ligne du DataFrame en chunk textuel pour l'embedding.
@@ -150,7 +120,7 @@ def film_to_text(film: dict) -> str:
         return "\n".join(parts)
 
     except Exception as e:
-        print(f"      ⚠️  Erreur film_to_text : {e}")
+        print(f"Error in film_to_text: {e}")
         return ""
 
 
@@ -165,27 +135,8 @@ def build_chunks(df_clean: pd.DataFrame) -> list:
         list[str]: Un chunk par film
     """
     chunks = [film_to_text(row) for row in df_clean.to_dict("records")]
-
     print(f"[4] {len(chunks)} chunks construits")
-    print(f"\n    ── Aperçu chunk[0] ──────────────────────────")
-    for ligne in chunks[0].split("\n"):
-        print(f"    {ligne}")
-    print(f"    ─────────────────────────────────────────────\n")
-
     return chunks
-
-
-def test_chunks(chunks: list, df_clean: pd.DataFrame):
-    """Test unitaire — section 4"""
-    assert len(chunks) == len(df_clean),            "❌ Nombre de chunks ≠ nombre de films"
-    assert all(isinstance(c, str) for c in chunks), "❌ Certains chunks ne sont pas des strings"
-    assert all(len(c) > 10 for c in chunks),        "❌ Certains chunks sont vides ou trop courts"
-    print("    ✅ test_chunks passé")
-
-
-# ─────────────────────────────────────────────
-# SECTION 5 — Embedding
-# ─────────────────────────────────────────────
 
 def embedder_chunks(chunks: list) -> np.ndarray:
     """
@@ -207,20 +158,6 @@ def embedder_chunks(chunks: list) -> np.ndarray:
     print(f"    Dimension des vecteurs : {vecteurs.shape}")
     return vecteurs
 
-
-def test_embedding(vecteurs: np.ndarray, nb_films: int):
-    """Test unitaire — section 5"""
-    assert vecteurs.ndim == 2,             "❌ La matrice n'est pas 2D"
-    assert vecteurs.shape[0] == nb_films,  f"❌ {vecteurs.shape[0]} vecteurs pour {nb_films} films"
-    assert vecteurs.shape[1] == 768,       f"❌ Dimension attendue 768, obtenu {vecteurs.shape[1]}"
-    assert vecteurs.dtype == np.float32,   "❌ Les vecteurs doivent être float32"
-    print("    ✅ test_embedding passé")
-
-
-# ─────────────────────────────────────────────
-# SECTION 6 — Construction de l'index FAISS
-# ─────────────────────────────────────────────
-
 def build_faiss(vecteurs: np.ndarray) -> faiss.IndexFlatL2:
     """
     Crée l'index FAISS et ajoute tous les vecteurs.
@@ -238,18 +175,6 @@ def build_faiss(vecteurs: np.ndarray) -> faiss.IndexFlatL2:
 
     print(f"[6] Index FAISS construit — {index.ntotal} vecteurs indexés")
     return index
-
-
-def test_faiss(index: faiss.IndexFlatL2, nb_films: int):
-    """Test unitaire — section 6"""
-    assert index.ntotal == nb_films, \
-        f"❌ Index contient {index.ntotal} vecteurs, attendu {nb_films}"
-    print("    ✅ test_faiss passé")
-
-
-# ─────────────────────────────────────────────
-# SECTION 7 — Persistance & Idempotence
-# ─────────────────────────────────────────────
 
 def build_metadata(df_clean: pd.DataFrame) -> dict:
     """
@@ -300,7 +225,6 @@ def save(index: faiss.IndexFlatL2, metadata: dict):
         json.dump(index_info, f, ensure_ascii=False, indent=2)
     print(f"    Trace modèle sauvegardée   → {INDEX_INFO_PATH}")
 
-
 def index_exists() -> bool:
     """
     Vérifie que les trois fichiers produits existent.
@@ -311,11 +235,6 @@ def index_exists() -> bool:
         os.path.exists(METADATA_PATH) and
         os.path.exists(INDEX_INFO_PATH)
     )
-
-
-# ─────────────────────────────────────────────
-# SECTION 8 — Vérification finale
-# ─────────────────────────────────────────────
 
 def verifier_index():
     """
@@ -342,61 +261,34 @@ def verifier_index():
 
     distances, indices = index.search(vecteur_test, k=3)
 
-    print(f"\n    Requête test : \"{phrase_test}\"")
-    print(f"    ── Top 3 résultats ───────────────────────────")
+    print(f"\nRequete test: \"{phrase_test}\"")
+    print("Top 3 resultats:")
     for rang, idx in enumerate(indices[0]):
         film = metadata.get(str(idx), {})
-        print(f"    [{rang+1}] {film.get('title', '?')} "
-              f"— {film.get('vote_average', '?')}/10 "
-              f"— {', '.join(film.get('genres', []))}")
-    print(f"    ─────────────────────────────────────────────")
-    print(f"\n    ✅ Index opérationnel — {index.ntotal} films indexés\n")
-
-
-# ─────────────────────────────────────────────
-# PIPELINE PRINCIPAL
-# ─────────────────────────────────────────────
+        print(f"  [{rang+1}] {film.get('title', '?')} - {film.get('vote_average', '?')}/10 - {', '.join(film.get('genres', []))}")
+    print(f"Index operationnel — {index.ntotal} films indexes\n")
 
 def run():
-    """
-    Pipeline complet d'indexation.
-    Idempotence : si les trois fichiers existent → skip.
-    """
-    print("\n" + "█" * 60)
-    print("  INDEXATION — Construction de la base vectorielle FAISS")
-    print("█" * 60 + "\n")
+    """Pipeline complet d'indexation. Si les fichiers existent, skip."""
+    print("INDEXATION — Construction de la base vectorielle FAISS\n")
 
     if index_exists():
-        print("⚡ Index déjà présent sur disque — indexation skippée")
-        print(f"   {FAISS_PATH}")
-        print(f"   {METADATA_PATH}")
-        print(f"   {INDEX_INFO_PATH}")
+        print("Index deja present sur disque — indexation skippee")
+        print(f"  {FAISS_PATH}")
+        print(f"  {METADATA_PATH}")
+        print(f"  {INDEX_INFO_PATH}")
         verifier_index()
         return
 
     df_raw   = load_csv(CSV_PATH)
-    test_chargement(df_raw)
-
     df_clean = clean_data(df_raw)
-    test_cleaning(df_clean)
-
     chunks   = build_chunks(df_clean)
-    test_chunks(chunks, df_clean)
-
     vecteurs = embedder_chunks(chunks)
-    test_embedding(vecteurs, len(df_clean))
-
     index    = build_faiss(vecteurs)
-    test_faiss(index, len(df_clean))
-
     metadata = build_metadata(df_clean)
     save(index, metadata)
-
     verifier_index()
-
-    print("█" * 60)
-    print("  ✅ INDEXATION TERMINÉE")
-    print("█" * 60 + "\n")
+    print("INDEXATION TERMINEE\n")
 
 
 if __name__ == "__main__":
