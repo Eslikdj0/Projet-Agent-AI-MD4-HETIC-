@@ -1,0 +1,269 @@
+================================================================================
+INDEXATION - COMPLETE REFERENCE GUIDE (INDEPENDENT)
+================================================================================
+
+This is a self-contained indexation system for preparing data with FAISS.
+No dependencies on other scripts - just indexation.py and your data files.
+
+================================================================================
+DATA REQUIREMENTS
+================================================================================
+
+Required data files (auto-generated, already available):
+  ✓ data/chunks/chunks.json           - Text chunks (1,209 items)
+  ✓ data/output/tmdb_credits_clean.json - Movie records (4,803 items)
+
+These files are already available and can be used directly.
+
+
+================================================================================
+QUICK START
+================================================================================
+
+# 1. Simple load & prepare
+from indexation import DataIndexer
+
+data = "data/chunks/chunks.json"
+indexer = DataIndexer(data)
+chunks = indexer.load()
+indexed = indexer.index()
+
+print(f"Loaded {indexed['count']} items")
+print(f"Sample: {indexed['texts'][0][:100]}")
+
+
+# 2. Get texts for embedding
+texts = indexer.get_texts()
+# texts = ["Movie: Avatar\nID: 19995\nCast Members...", ...]
+
+
+# 3. Access original data
+original_data = indexed['data']
+# original_data = [{'chunk_id': 0, 'text': '...', 'movie_ids': [...]}, ...]
+
+
+================================================================================
+EXAMPLES
+================================================================================
+
+EXAMPLE 1: Load chunks for embedding
+─────────────────────────────────────
+from indexation import DataIndexer
+
+indexer = DataIndexer("data/chunks/chunks.json")
+chunks = indexer.load()
+texts = indexer.get_texts()
+
+print(f"Chunks loaded: {len(texts)}")
+# Output: Chunks loaded: 1209
+
+
+EXAMPLE 2: Load movies metadata
+─────────────────────────────────
+from indexation import DataIndexer
+
+indexer = DataIndexer("data/output/tmdb_credits_clean.json")
+movies = indexer.load()
+indexed = indexer.index()
+
+for movie in indexed['data'][:3]:
+    print(f"{movie['title']} - {movie['cast_members_count']} actors")
+
+
+EXAMPLE 3: Full FAISS indexation pipeline
+───────────────────────────────────────────
+from indexation import DataIndexer
+from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
+
+# 1. Load chunks
+indexer = DataIndexer("data/chunks/chunks.json")
+chunks = indexer.load()
+texts = indexer.get_texts()
+
+# 2. Create embeddings
+model = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2")
+embeddings = model.encode(texts)
+
+# 3. Build FAISS index
+index = faiss.IndexFlatL2(768)
+index.add(np.array(embeddings, dtype=np.float32))
+
+print(f"✓ FAISS index created: {index.ntotal} vectors indexed")
+
+# 4. Search example
+query = "Movie with action scenes"
+query_embedding = model.encode([query])[0]
+distances, indices = index.search(np.array([query_embedding], dtype=np.float32), k=5)
+print(f"✓ Found {len(indices[0])} similar chunks")
+
+
+EXAMPLE 4: Custom data path variable
+──────────────────────────────────────
+# Define your data source
+data_source = "data/chunks/chunks.json"  # or any other path
+
+# Use it
+indexer = DataIndexer(data_source)
+data = indexer.load()
+indexed = indexer.index()
+
+
+================================================================================
+API REFERENCE
+================================================================================
+
+CLASS: DataIndexer
+
+Constructor:
+  DataIndexer(data_path)
+    Parameters:
+      data_path (str) - Path to JSON or CSV file
+    Example: indexer = DataIndexer("data/chunks/chunks.json")
+
+Methods:
+
+  load() → list or dict
+    Description: Load data from file
+    Returns: Loaded data (list for JSON arrays, dict for objects)
+    Example:
+      data = indexer.load()
+      print(f"Loaded {len(data)} items")
+
+  get_texts() → list of str
+    Description: Extract text content for embedding
+    Returns: List of text strings
+    Example:
+      texts = indexer.get_texts()
+      for text in texts[:3]:
+          print(text[:100])
+
+  index() → dict
+    Description: Prepare data for indexation
+    Returns: Dictionary with keys:
+      - 'count' (int): Number of items
+      - 'texts' (list): Text strings for embedding
+      - 'data' (list/dict): Original data records
+    Example:
+      indexed = indexer.index()
+      print(f"Count: {indexed['count']}")
+      print(f"First text: {indexed['texts'][0]}")
+      print(f"First data: {indexed['data'][0]}")
+
+
+================================================================================
+DATA FORMATS SUPPORTED
+================================================================================
+
+✓ JSON files with arrays
+  Format: [{"field": "value"}, {"field": "value"}]
+  Auto-detection: Looks for 'text' or 'title' field
+
+✓ JSON files with objects
+  Format: {"key": {"field": "value"}}
+  Converted to dict for processing
+
+✓ CSV files
+  Format: CSV with headers
+  Auto-converted to records
+
+
+================================================================================
+COMMON PATTERNS
+================================================================================
+
+Pattern 1: Store data path in variable
+──────────────────────────────────────
+data = "data/chunks/chunks.json"
+indexer = DataIndexer(data)
+chunks = indexer.load()
+texts = indexer.get_texts()
+
+
+Pattern 2: Batch process multiple sources
+───────────────────────────────────────────
+sources = {
+    'chunks': "data/chunks/chunks.json",
+    'movies': "data/output/tmdb_credits_clean.json"
+}
+
+for name, path in sources.items():
+    indexer = DataIndexer(path)
+    data = indexer.load()
+    print(f"{name}: {len(data)} items loaded")
+
+
+Pattern 3: Filter and prepare texts
+────────────────────────────────────
+indexer = DataIndexer("data/chunks/chunks.json")
+chunks = indexer.load()
+texts = [t for t in indexer.get_texts() if len(t) > 100]
+print(f"Filtered to {len(texts)} valid chunks")
+
+
+Pattern 4: Pipeline chain
+─────────────────────────
+data_path = "data/chunks/chunks.json"
+indexer = DataIndexer(data_path)
+indexed = indexer.index()
+embedding_ready_texts = indexed['texts']
+original_metadata = indexed['data']
+
+
+================================================================================
+OUTPUT STRUCTURES
+================================================================================
+
+For chunks (data/chunks/chunks.json):
+  indexed['count']    → 1209 (int)
+  indexed['texts'][0] → "Movie: Four Rooms\nID: 5\nCast Members (24): Tim Roth..."
+  indexed['data'][0]  → {'chunk_id': 0, 'text': '...', 'movie_ids': [5], ...}
+
+For movies (data/output/tmdb_credits_clean.json):
+  indexed['count']    → 4803 (int)
+  indexed['texts'][0] → "Avatar"
+  indexed['data'][0]  → {'movie_id': 19995, 'title': 'Avatar', ...}
+
+
+================================================================================
+REQUIREMENTS
+================================================================================
+
+Python packages (already installed):
+  - pandas
+  - faiss-cpu
+  - sentence-transformers
+  - numpy
+
+Optional for advanced usage:
+  - groq (for AI queries)
+  - python-dotenv (for environment variables)
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Q: FileNotFoundError: "data/chunks/chunks.json" not found
+A: Ensure you're running from the project root directory
+   Current working directory should be: Projet-Agent-AI-MD4-HETIC-
+
+Q: No 'text' field found
+A: Check that the JSON file has expected structure
+   Run: indexer.load() first to inspect data
+
+Q: Memory error with embeddings
+A: Process in batches instead of all at once
+   embeddings = model.encode(texts, batch_size=32)
+
+================================================================================
+INDEPENDENT & SELF-CONTAINED
+================================================================================
+
+This indexation system is COMPLETELY INDEPENDENT:
+  ✓ No dependency on clean_data.py
+  ✓ No dependency on check_data.py
+  ✓ No dependency on raw_to_text.py
+  ✓ Uses pre-generated data files only
+  ✓ Minimal, focused, production-ready
